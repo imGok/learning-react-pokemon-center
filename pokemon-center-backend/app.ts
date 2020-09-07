@@ -1,54 +1,43 @@
-import { Application, Router, RouterContext } from "https://deno.land/x/oak/mod.ts";
+import {
+  Application,
+  Router,
+  RouterContext,
+} from "https://deno.land/x/oak/mod.ts";
 import { applyGraphQL, gql } from "https://deno.land/x/oak_graphql/mod.ts";
-import { insertPokemon, deletePokemonById, getPokemon, getPokemons } from './shared/controllers/pokemon.ts'
+import { pokemonSeeding } from "./shared/utils/appSeeder.ts";
+
+import { resolver as pokemonResolver } from "./shared/resolvers/pokemonResolver.ts";
+import { pokemonGQLTypes } from "./shared/schemas/pokemonSchema.ts";
+
+import { resolver as fightResolver } from "./shared/resolvers/fightResolver.ts";
+import { fightGQLTypes } from "./shared/schemas/fightSchema.ts";
+
+import { resolver as duelResolver } from "./shared/resolvers/duelResolver.ts";
 
 const app = new Application();
 
 const types = gql`
-type Pokemon {
-  id: String
-  name: String
-  type: String
-}
-input PokemonInput {
-  name: String
-  type: String
-}
-input PokemonDeleteInput{
-  id: String
-}
+${pokemonGQLTypes.type} ${fightGQLTypes.type}
 type ResolveType {
   done: Boolean
 }
 type Query {
-  getPokemon(id: String!): Pokemon
-  getPokemons: [Pokemon] 
+  ${pokemonGQLTypes.query} ${fightGQLTypes.query}
 }
 type Mutation {
-  insertPokemon(input: PokemonInput!): Pokemon
-  deletePokemon(input: PokemonDeleteInput!): String
+  ${pokemonGQLTypes.mutation} ${fightGQLTypes.mutation}
 }
 `;
 
 const resolvers = {
   Query: {
-    getPokemon: async (parent: any, { id }: any, context: any, info: any) => {
-      return await getPokemon(id)
-    },
-    getPokemons: async (parent: any, { }, context: any, info: any) => {
-      return await getPokemons()
-    },
+    ...pokemonResolver.Query,
+    ...fightResolver.Query,
   },
   Mutation: {
-    insertPokemon: async (parent: any, { input: { name, type } }: any, context: any, info: any) => {
-      return await insertPokemon({
-        name: name,
-        type: type
-      })
-    },
-    deletePokemon: async (parent: any, { input: { id } }: any, context: any, info: any) => {
-      return await deletePokemonById(id)
-    },
+    ...pokemonResolver.Mutation,
+    ...fightResolver.Mutation,
+    ...duelResolver.Mutation,
   },
 };
 
@@ -58,10 +47,11 @@ const GraphQLService = await applyGraphQL<Router>({
   resolvers: resolvers,
   context: (ctx: RouterContext) => {
     return { user: "Julian" };
-  }
-})
+  },
+});
 
 app.use(GraphQLService.routes(), GraphQLService.allowedMethods());
+pokemonSeeding();
 
-console.log("Server start at http://localhost:8080");
+console.log("Server start at http://localhost:8080/graphql");
 await app.listen({ port: 8080 });
